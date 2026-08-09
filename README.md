@@ -1,6 +1,9 @@
 # Education Project
 
-Este workspace foi preparado como base inicial para o desafio técnico full-stack.
+Este projeto é uma aplicação full-stack para análise de dados educacionais de municípios de Alagoas.
+Ele permite importar arquivos CSV, validar e armazenar os registros no PostgreSQL e visualizar os dados em um dashboard interativo. A interface apresenta indicadores, séries históricas, rankings municipais, comparações por rede ou etapa de ensino e uma tabela detalhada.
+Os filtros globais permitem selecionar múltiplos municípios, anos, fontes, redes, etapas e variáveis. O sistema também trata corretamente diferentes tipos de dados, utilizando soma para quantidades e média para taxas.
+A aplicação utiliza Node.js, Express, TypeScript, Prisma e PostgreSQL no backend, com React, Vite, Tailwind CSS, TanStack Query e Recharts no frontend.
 
 ## Estrutura
 
