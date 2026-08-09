@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "concurrently --kill-others-on-fail --names typescript,server \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch dist/index.js\"",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js"
   },
