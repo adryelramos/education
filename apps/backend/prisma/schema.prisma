@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DadosEducacao {
+  id          BigInt   @id @default(autoincrement())
+  co_mun      String   @db.VarChar(7)
+  no_mun      String
+  ano         Int
+  fonte       String
+  variavel    String
+  ensino_rede String
+  ensino_tipo String
+  valor       Decimal  @db.Decimal(14, 4)
+  createdAt   DateTime @default(now())
+
+  @@index([ano, variavel, ensino_rede, ensino_tipo])
+  @@index([co_mun])
+}

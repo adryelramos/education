@@ -1,0 +1,16 @@
+{
+  "name": "education",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace apps/backend\" \"npm run dev --workspace apps/frontend\"",
+    "dev:backend": "npm run dev --workspace apps/backend",
+    "dev:frontend": "npm run dev --workspace apps/frontend",
+    "build": "npm run build --workspace apps/backend && npm run build --workspace apps/frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

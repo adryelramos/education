@@ -1,0 +1,99 @@
+# PROMPT DE DESENVOLVIMENTO: DESAFIO TÉCNICO FULL-STACK (EDUCAÇÃO ALAGOAS)
+
+## 🎯 OBJETIVO
+Atuar como um Desenvolvedor Full-Stack Senior e implementar uma aplicação web de analytics educacional baseada no arquivo `DESAFIO.pdf`. A aplicação deve realizar upload/streaming de arquivo CSV, processar e validar os dados no backend, persistir em um banco PostgreSQL e exibir os dados em um Dashboard responsivo e performático.
+
+---
+
+## 🛠️ TECH STACK OBRIGATÓRIA
+- **Frontend**: React + TypeScript, Vite, Tailwind CSS. (Bibliotecas de UI/Charts livres: e.g., shadcn/ui, Recharts ou ECharts).
+- **Backend**: Node.js + Express + TypeScript.
+- **Banco de Dados**: PostgreSQL com ORM Type-Safe (Prisma ou Drizzle ORM) + Docker Compose (`docker-compose.yml`).
+- **Validação**: Zod (schema validation no backend e frontend).
+- **Parsing/Streaming**: `csv-parse` ou `papaparse` via Stream.
+
+---
+
+## ⚠️ REGRAS CRÍTICAS DE TRATAMENTO DE DADOS (30% DA AVALIAÇÃO)
+Você DEVE respeitar rigorosamente as inconsistências de dados do domínio educacional descritas abaixo:
+
+1. **Hierarquia da Coluna `ensino_rede`**:
+   - `Total` = `Pública` + `Privada`
+   - `Pública` = `Estadual` + `Municipal` + `Federal`
+   - **NÃO SOMAR TODAS AS LINHAS CEGAMENTE.** Tratamento: Aplicar filtro padrão de `ensino_rede = 'Total'` no backend/consultas para evitar contagem duplicada/triplicada de alunos.
+
+2. **Métrica `Escolas` por `ensino_tipo`**:
+   - Uma escola pode ofertar múltiplas etapas. Somar ao longo de `ensino_tipo` conta ofertas, não prédios.
+   - Tratar na UI/Dashboard como "Ofertas de Ensino" ou fixar a exibição por etapa.
+
+3. **Taxas e Percentuais (Aprovação, Reprovação, Abandono, Alfabetização, Analfabetismo)**:
+   - **NUNCA** somar percentuais.
+   - Para médias agregadas entre municípios, implementar **Média Ponderada** ponderada pelo volume de `Matrícula` (Fórmula: `SUM(taxa * matricula) / SUM(matricula)`). Se usar média simples, explicitar na UI.
+
+4. **Incompatibilidade Temporal e Ausências**:
+   - `censo_escolar` e `indicadores_rendimento` são anuais (2007-2025). `censo_demografico` só existe em anos censitários (ex: 2010, 2022).
+   - Ausência de linha **NÃO É ZERO**. Exibir como "Sem dado no período" na UI para evitar quedas artificiais nos gráficos.
+
+5. **Acentuação e Tipagem de Código IBGE**:
+   - `co_mun` DEVE ser armazenado e tratado como `VARCHAR(7)` / String, NUNCA como número/Integer.
+   - Manter charset UTF-8 em todas as camadas (Parse, DB, API e Frontend).
+
+---
+
+## 🚀 REQUISITOS DE FUNCIONALIDADE E API
+
+### 1. Backend & Stream Processing (`POST /api/upload`)
+- Processar via `multipart/form-data` utilizando Stream/Chunks para suportar bases grandes (145.028 linhas, ~13 MB) sem dar Out Of Memory.
+- Inserções no banco via **Batch Insert** (1.000 a 5.000 linhas por batch) ou `COPY`.
+- **Validações de Upload (HTTP 400)**: Validar extensão, cabeçalhos e colunas obrigatórias. Rejeitar o arquivo completo se o cabeçalho for inválido.
+- **Validação por Linha**: Linhas individuais com erro (tipos incorretos, campos vazios) devem ser salvas em log/array de rejeição, sem derrubar a importação.
+- **Comportamento de Reimportação**: Ao reimportar a base, implementar a estratégia de **substituição total (upsert/truncate e reload)** ou acumulação consistente.
+- Responder com o payload: `{ linhasLidas, linhasImportadas, linhasRejeitadas, erros: [] }`.
+
+### 2. Endpoints REST (Performance < 1s)
+As agregações devem ser feitas **estritamente no Banco de Dados (SQL)**. Nunca enviar 145 mil linhas para o frontend.
+- `GET /api/filtros`: Devolve opções dinâmicas de `{ municipios, anos, redes, etapas, variaveis }`.
+- `GET /api/indicadores`: Retorna os cards agregados baseados nos filtros.
+- `GET /api/series`: Retorna dados para gráfico temporal (`[{ ano, valor }]`).
+- `GET /api/ranking`: Retorna ranking de municípios ordenado (`[{ municipio, valor }]`).
+- `GET /api/dados`: Tabela paginada no servidor (`{ itens, total, pagina, tamanho }`).
+
+---
+
+## 📊 REQUISITOS DO DASHBOARD (FRONTEND)
+
+1. **Filtros Globais**:
+   - Múltipla seleção de Município, Intervalo de Anos, Rede de Ensino e Etapa de Ensino (com debounce nos inputs/filtros).
+2. **Cards de Indicadores**: Total de matrículas, ofertas de ensino/escolas, taxa média de aprovação e taxa de abandono.
+3. **Visualizações Gráficas (Mínimo 3)**:
+   - Gráfico de linha (Série Temporal por ano).
+   - Gráfico de barras (Comparativo entre municípios/ranking).
+   - Gráfico de pizza/rosca ou barras agrupadas (Quebra por Rede ou Etapa).
+4. **Tabela de Dados Paginada**: Com paginação controlada pelo servidor.
+5. **UI & Formatação**:
+   - Números inteiros em padrão `pt-BR` (ex: `109.026`).
+   - Percentuais com 1 ou 2 casas decimais (ex: `96,16%`).
+   - Estados bem definidos para **Loading**, **Empty** ("Sem dados para os filtros selecionados") e **Error**.
+
+---
+
+## 🗄️ MODELAGEM DE BANCO DE DADOS (POSTGRESQL)
+
+Criar uma estrutura eficiente com Índices Compostos para garantir buscas agregadas < 1s:
+
+```sql
+CREATE TABLE dados_educacao (
+  id SERIAL PRIMARY KEY,
+  co_mun VARCHAR(7) NOT NULL,
+  no_mun TEXT NOT NULL,
+  ano SMALLINT NOT NULL,
+  fonte TEXT NOT NULL,
+  variavel TEXT NOT NULL,
+  ensino_rede TEXT NOT NULL,
+  ensino_tipo TEXT NOT NULL,
+  valor NUMERIC NOT NULL
+);
+
+-- Índices essenciais para consultas de performance
+CREATE INDEX idx_educacao_agregacao ON dados_educacao (ano, variavel, ensino_rede, ensino_tipo);
+CREATE INDEX idx_educacao_municipio ON dados_educacao (co_mun);
